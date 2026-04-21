@@ -2,8 +2,9 @@
 % Part 1: Rescue Robot - Reach Nearest Survivor
 % Uninformed Search (BFS)
 % ============================================================
+
 % ---------------------------------------------------------------
-% GRID DEFINITION. 
+% MEMBER 1 - GRID DEFINITION
 % ---------------------------------------------------------------
 grid([[r, e, d, e, e],
       [e, e, f, e, s],
@@ -11,7 +12,8 @@ grid([[r, e, d, e, e],
       [e, s, e, f, e]]).
 
 % ---------------------------------------------------------------
-% Ensures robot stays within the boundaries. 
+% MEMBER 1 - GRID SIZE
+% Counts rows and columns to check boundaries.
 % ---------------------------------------------------------------
 grid_size(Rows, Cols) :-
     grid(Grid),
@@ -20,7 +22,8 @@ grid_size(Rows, Cols) :-
     length(FirstRow, Cols).
 
 % ---------------------------------------------------------------
-% Helper to get cell value at (Row, Col). 
+% MEMBER 1 - CELL VALUE
+% Gets the value of a cell at (Row, Col).
 % ---------------------------------------------------------------
 cell(Row, Col, Value) :-
     grid(Grid),
@@ -28,21 +31,24 @@ cell(Row, Col, Value) :-
     nth1(Col, RowList, Value).
 
 % ---------------------------------------------------------------
-% Starting point at r. 
+% MEMBER 1 - FIND START
+% Finds the cell containing r (robot start position).
 % ---------------------------------------------------------------
 find_start(pos(Row, Col)) :-
     cell(Row, Col, r).
 
 % ---------------------------------------------------------------
-% Four directions only, no diagonals. 
+% MEMBER 1 - MOVEMENT DIRECTIONS
+% Four directions only, no diagonals.
 % ---------------------------------------------------------------
-move_r(up,    -1,  0).
-move_r(down,   1,  0).
-move_r(left,   0, -1).
-move_r(right,  0,  1).
+move_r(up,     -1,  0).
+move_r(down,    1,  0).
+move_r(left,    0, -1).
+move_r(right,   0,  1).
 
 % ---------------------------------------------------------------
-% Cannot move into Debris (d) or Fire (f), stay in boundaries. 
+% MEMBER 1 - PASSABLE
+% A cell is passable if it is inside the grid and not d or f.
 % ---------------------------------------------------------------
 passable(Row, Col) :-
     grid_size(MaxRow, MaxCol),
@@ -52,107 +58,87 @@ passable(Row, Col) :-
     V \= d,
     V \= f.
 
-
-% GOAL TEST True If robot is currently on a survivor cell 
-
+% ---------------------------------------------------------------
+% MEMBER 2 - GOAL TEST
+% True if the robot is on a survivor cell.
+% ---------------------------------------------------------------
 goal_state(pos(Row, Col)) :-
     cell(Row, Col, s).
 
-
-% generate valid neighbors
-
-generate_neighbors(state(pos(R,C), Path, Battery),
+% ---------------------------------------------------------------
+% MEMBER 2 - GENERATE NEIGHBORS
+% Finds all valid next states from the current state.
+% MEMBER 3 battery logic is included here (-10 per step).
+% ---------------------------------------------------------------
+generate_neighbors(state(pos(R, C), Path, Battery),
                    Closed,
                    Neighbors) :-
-
     findall(
-        state(pos(R2,C2), NewPath, NewBattery),
-
+        state(pos(R2, C2), NewPath, NewBattery),
         (
             move_r(_, DR, DC),
             R2 is R + DR,
             C2 is C + DC,
             passable(R2, C2),
-            \+ member(pos(R2,C2), Closed),
-            \+ member(pos(R2,C2), Path),   % extra safety (no revisit in path)
-
+            \+ member(pos(R2, C2), Closed),
+            \+ member(pos(R2, C2), Path),
+            % MEMBER 3 - Battery: subtract 10, block if below 0
             NewBattery is Battery - 10,
             NewBattery >= 0,
-
-            append(Path, [pos(R2,C2)], NewPath)
+            append(Path, [pos(R2, C2)], NewPath)
         ),
-
         Neighbors
     ).
 
+% ---------------------------------------------------------------
+% MEMBER 2 - BFS SEARCH
+% Uses explicit open list (queue) and closed list.
+% Children added to BACK of queue = BFS behaviour.
+% ---------------------------------------------------------------
 
+% Base case: front of queue is a goal state.
+bfs([state(pos(R, C), Path, Battery) | _], _, state(pos(R, C), Path, Battery)) :-
+    goal_state(pos(R, C)), !.
 
-% bfs search loop
-
-
-bfs(Open, _, state(pos(R,C), Path, Battery)) :-
-    Open = [state(pos(R,C), Path, Battery) | _],
-    goal_state(pos(R,C)), !.
-
-
-bfs(Open, Closed, Solution) :-
-    Open = [Current | RestOpen],
-
-    Current = state(pos(R,C), _, _),
-
+% Recursive case: expand front, add children to back.
+bfs([Current | RestOpen], Closed, Solution) :-
+    Current = state(pos(R, C), _, _),
     generate_neighbors(Current, Closed, Children),
-
     append(RestOpen, Children, NewOpen),
-    append(Closed, [pos(R,C)], NewClosed),
-
+    append(Closed, [pos(R, C)], NewClosed),
     bfs(NewOpen, NewClosed, Solution).
 
-
-
-% no path case_ 
-
+% No path case.
 bfs([], _, no_path).
 
+% ---------------------------------------------------------------
+% MEMBER 3 - PATH FORMATTING
+% Prints path as (R,C) -> (R,C) -> ... -> (R,C)
+% ---------------------------------------------------------------
+print_path([pos(R, C)]) :-
+    format('(~w,~w)', [R, C]).
+print_path([pos(R, C) | Rest]) :-
+    format('(~w,~w) -> ', [R, C]),
+    print_path(Rest).
 
-% main entry predicate 
-
+% ---------------------------------------------------------------
+% MEMBER 3 - MAIN OUTPUT PREDICATE
+% Prints: path, number of steps, remaining battery.
+% ---------------------------------------------------------------
 rescue_nearest_survivor :-
-
     find_start(StartPos),
-
     InitialState = state(StartPos, [StartPos], 100),
-
     bfs([InitialState], [], Result),
-
     (
-        Result = no_path ->
-            write('No path found.'), nl
-
-        ;
-
+        Result = no_path
+    ->
+        write('No path found.'), nl
+    ;
         Result = state(_, Path, Battery),
-
         length(Path, L),
         Steps is L - 1,
-
         write('Path found: '),
         print_path(Path), nl,
-
-        write('Number of steps: '),
-        write(Steps), nl,
-
-        write('Remaining Battery: '),
-        write(Battery), write('%'), nl
+        format('Number of steps: ~w~n', [Steps]),
+        format('Remaining Battery: ~w%~n', [Battery])
     ).
-
-
-
-
-% helper to print path 
-
-print_path([pos(R,C)]) :-
-    format('(~w,~w)', [R,C]).
-
-print_path([pos(R,C)|Rest]) :-
-    format('(~w,~w) -> ', [R,C]),
-    print_path(Rest).

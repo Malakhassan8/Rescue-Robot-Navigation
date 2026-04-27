@@ -105,7 +105,7 @@ bfs_check([pos(R,C)|Rest], Visited, Goal) :-
     append(Visited, Children, NewVisited ),
     bfs_check(NewQueue, NewVisited , Goal).
  
-% check if Goal is reachable from the Start.
+% Goal is reachable from Start.
 reachable(Start, Goal, Visited) :-
     bfs_check([Start], Visited, Goal).
  
